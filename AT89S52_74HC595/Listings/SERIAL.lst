@@ -1,0 +1,62 @@
+A51 MACRO ASSEMBLER  SERIAL                                                               09/08/2021 08:05:49 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\SERIAL.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE SERIAL.ASM SET(SMALL) DEBUG PRINT(.\Listings\SERIAL.lst) OBJECT(.\Objec
+                      ts\SERIAL.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1     ORG 0000H
+0000 020030            2     LJMP MAIN
+0023                   3     ORG 23H
+0023 020100            4     LJMP SERIAL ;jump to serial int ISR
+0030                   5     ORG 30H
+0030 7590FF            6     MAIN: MOV P1,#0FFH ;make P1 an input port
+0033 758920            7     MOV TMOD,#20H ;timer 1, auto reload
+0036 758DFD            8     MOV TH1,#0FDH ;9600 baud rate
+0039 759850            9     MOV SCON,#50H ;8-bit,1 stop, ren enabled
+003C 8590A8           10     MOV IE,10010000B ;enable serial int.
+003F D28E             11     SETB TR1 ;start timer 1
+0041 E590             12     BACK: MOV A,P1 ;read data from port 1
+0043 F5A0             13     MOV P2,A ;send it to P2
+0045 80FA             14     SJMP BACK
+0100                  15     ORG 100H
+0100 209907           16     SERIAL: JB TI,TRANS;jump if TI is high
+0103 E599             17     MOV A,SBUF ;otherwise due to receive
+0105 F580             18     MOV P0,A ;send incoming data to P0
+0107 C298             19     CLR RI ;clear RI since CPU doesn’t
+0109 32               20     RETI ;return from ISR
+010A C299             21     TRANS: CLR TI ;clear TI since CPU doesn’t
+010C 32               22     RETI ;return from ISR
+                      23     END
+A51 MACRO ASSEMBLER  SERIAL                                                               09/08/2021 08:05:49 PAGE     2
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+BACK . . . . . . .  C ADDR   0041H   A   
+IE . . . . . . . .  D ADDR   00A8H   A   
+MAIN . . . . . . .  C ADDR   0030H   A   
+P0 . . . . . . . .  D ADDR   0080H   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+P2 . . . . . . . .  D ADDR   00A0H   A   
+RI . . . . . . . .  B ADDR   0098H.0 A   
+SBUF . . . . . . .  D ADDR   0099H   A   
+SCON . . . . . . .  D ADDR   0098H   A   
+SERIAL . . . . . .  C ADDR   0100H   A   
+TH1. . . . . . . .  D ADDR   008DH   A   
+TI . . . . . . . .  B ADDR   0098H.1 A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR1. . . . . . . .  B ADDR   0088H.6 A   
+TRANS. . . . . . .  C ADDR   010AH   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

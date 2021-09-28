@@ -1,0 +1,378 @@
+A51 MACRO ASSEMBLER  MAIN                                                                 09/09/2021 11:18:34 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\main.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE main.asm SET(SMALL) DEBUG PRINT(.\Listings\main.lst) OBJECT(.\Objects\m
+                      ain.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+  00B2                 1     SW0     EQU     P3.2
+  00B3                 2     SW1     EQU     P3.3
+  00B4                 3     SW2     EQU     P3.4
+  00B5                 4     SW3     EQU     P3.5
+                       5             
+                       6     ;               Pin para controlar el IC        
+  0080                 7     D_1     EQU     P0.0            ;       Display 0
+  0081                 8     D_2     EQU     P0.1            ;       Display 1
+  0082                 9     D_3     EQU     P0.2            ;       Display 2
+  0083                10     D_4     EQU     P0.3            ;       Display 3
+                      11     
+  00A0                12     S_H     EQU     P2.0            ;       Pin 11  Clock para ingresar datos
+  00A1                13     S_T     EQU     P2.1            ;       Pin     12      Trigger para ingresar datos al IC
+  00A2                14     D_S     EQU     P2.2            ;       Pin 14  Input de datos seriales
+                      15     
+  0030                16     R_DIS0  EQU     30H     ;       Storage Almacenar datos en RAM 30h del Display 0        
+  0031                17     R_DIS1  EQU     31H             ;       Storage Almacenar datos en RAM 31h del Display 1
+  0032                18     R_DIS2  EQU     32H             ;       Storage Almacenar datos en RAM 32h del Display 2 
+  0033                19     R_DIS3  EQU     33H             ;       Storage Almacenar datos en RAM 33h del Display 3
+                      20     
+  0034                21     R_N             EQU     34H             ;       Contador para entrar 4 veces y desplegar da
+                             tos uno a uno
+  0035                22     R_P             EQU     35H             ;       Almacena 00FEH para mandarlo al puerto y en
+                             cender los Display's
+                      23     ;R_D            EQU 36H         ;       
+                      24     
+  0036                25     R_ADDR  EQU 36H         ;       Guardar posicion del valor del DISPLAY0
+  0037                26     BUFFER  EQU     37H             ;       Almacenar datos del puerto serie
+  0038                27     P_DATA  EQU     38H             ;       Posicion de datos para mostrar en display
+  007F                28     B_SWTCH EQU 7FH
+                      29     ;-------                Reset           -------;
+0000                  30     ORG 0000H       
+0000 020030           31             LJMP    SETUP
+                      32     ;-----------------------------------    
+                      33     ;-------        External INT0   -------;
+0003                  34     ORG     0003H
+0003 020500           35             LJMP    INT_0
+                      36     ;-----------------------------------    
+                      37     ;-------        Timer 0 [TF0]   -------;        
+000B                  38     ORG 000BH       
+000B C28C             39             CLR             TR0     
+000D 020400           40             LJMP    TIMER_0
+                      41     ;-----------------------------------    
+                      42     ;-------        External INT1   -------;
+0013                  43     ORG 0013H               
+0013 020550           44             LJMP    INT_1
+                      45     ;-----------------------------------    
+                      46     ;-------        Timer 1 [TF1]   -------;
+001B                  47     ORG 001BH
+001B 020450           48             LJMP    TIMER_1
+                      49     ;-----------------------------------
+                      50     ;---    Serial COM [RI & TI]    ---;
+0023                  51     ORG     0023H           
+0023 020600           52             LJMP    SERIAL
+                      53     ;-----------------------------------    
+                      54     ;-------                Setup           -------;
+0030                  55     ORG     0030H
+A51 MACRO ASSEMBLER  MAIN                                                                 09/09/2021 11:18:34 PAGE     2
+
+0030                  56             SETUP:
+0030 900650           57             MOV             DPTR,#BCD_A             ; Cargar DPTR con la posicion de los datos 
+                             de la FLASH
+                      58             ;       CONFIGURE PORT's
+0033 D2B2             59             SETB    SW0
+0035 D2B3             60             SETB    SW1
+0037 D2B4             61             SETB    SW2
+0039 D2B5             62             SETB    SW3
+003B 758000           63             MOV             P0,#000H
+003E 759000           64             MOV             P1,#000H
+0041 75A000           65             MOV             P2,#000H
+0044 75A0FF           66             MOV             P2,#0FFH                
+                      67             ;       CONFIGURE TIMER's
+0047 758CED           68             MOV             TH0,#0EDH               
+004A 758AFF           69             MOV             TL0,#0FFH               
+004D 758DFD           70             MOV             TH1,#0FDH               ; 9600 baud rate
+0050 758921           71             MOV             TMOD,#021H              ; T1->[Mode 2,8 bit autoreload] T0->[Mode 1
+                             , 16 bit no autoreload]
+0053 759850           72             MOV             SCON,#050H              ; 8-BIT, 1 STOP
+0056 D28C             73             SETB    TR0                             ; Iniciar Timer0
+0058 D28E             74             SETB    TR1                             ; Iniciar Timer1
+                      75             ;       CONFIGURE INTERRUPT's
+005A 75A897           76             MOV             IE,#10010111B   ; | EA  |  -  | ET2 | ES  | ET1 | EX1 | ET0 | EX0 |
+                                  
+                      77             ;TCON   | TF1 | TR1 | TF0 | TR0 | IE1 | IT1 | IE0 | IT0 |
+005D D289             78             SETB    TCON.1                  ; Activar interrupcion por H->L del INT0 
+005F D28C             79             SETB    TCON.4                  ; Activar interrupcion por H->L del INT1
+                      80             ;       CONFIGURE SERIAL
+                      81                             
+                      82             ;       INICIAR VARIABLES
+0061 753630           83             MOV             R_ADDR,#R_DIS0  ; CARGAR POSICION 0030H DE RAM EN R_ADDR
+0064 753000           84             MOV             R_DIS0,#00              ; Valor a cargar en DIS 0 
+0067 753100           85             MOV             R_DIS1,#00              ; Valor a cargar en DIS 1
+006A 753200           86             MOV             R_DIS2,#00              ; Valor a cargar en DIS 2
+006D 753300           87             MOV             R_DIS3,#00              ; Valor a cargar en DIS 3
+0070 753400           88             MOV             R_N,#00                 ; CONTADOR DE VECES
+0073 7535FE           89             MOV             R_P,#11111110B  ; SELECTOR DE PUERTO
+0076 753700           90             MOV             BUFFER,#00
+0079 753800           91             MOV             P_DATA,#00
+007C C2A2             92             CLR             D_S
+007E C2A0             93             CLR             S_H
+0080 C2A1             94             CLR     S_T 
+0082 C27F             95             CLR             B_SWTCH                 ; CLR bit de RAM para filtrar dato del buff
+                             er 
+                      96             ;-------------------------------------
+0084 020100           97             LJMP    MAIN
+                      98     ;-----------------------------------------      
+                      99     ;------------------- MAIN ----------------      
+0100                 100     ORG 0100H
+0100                 101             MAIN:
+0100 120106          102                             LCALL   SWITCH_DIS
+                     103                                                     
+                     104                             
+0103 020100          105                             LJMP    MAIN
+                     106     ;------------------- END MAIN ------------------                        
+                     107     ;-----------------------------------------      
+                     108     ;------------------- FUNCTION ----------------  
+0106                 109     SWITCH_DIS:     
+0106 207F01          110                             JB              B_SWTCH,JUMP0
+0109 22              111                             RET
+                     112                             
+010A C2AF            113             JUMP0:  CLR     IE.7
+010C C27F            114                             CLR             B_SWTCH
+010E AF37            115                             MOV             R7,BUFFER
+0110 BF3005          116                             CJNE    R7,#'0',CASE0
+0113 753700          117                             MOV             BUFFER,#0
+A51 MACRO ASSEMBLER  MAIN                                                                 09/09/2021 11:18:34 PAGE     3
+
+0116 805F            118                             JMP             BREAK
+0118 BF3105          119             CASE0:  CJNE    R7,#'1',CASE1
+011B 753701          120                             MOV             BUFFER,#1
+011E 8057            121                             JMP             BREAK
+0120 BF3205          122             CASE1:  CJNE    R7,#'2',CASE2
+0123 753702          123                             MOV             BUFFER,#2
+0126 804F            124                             JMP             BREAK
+0128 BF3305          125             CASE2:  CJNE    R7,#'3',CASE3
+012B 753703          126                             MOV             BUFFER,#3
+012E 8047            127                             JMP             BREAK
+0130 BF3405          128             CASE3:  CJNE    R7,#'4',CASE4
+0133 753704          129                             MOV             BUFFER,#4
+0136 803F            130                             JMP             BREAK   
+0138 BF3505          131             CASE4:  CJNE    R7,#'5',CASE5
+013B 753705          132                             MOV             BUFFER,#5
+013E 8037            133                             JMP             BREAK
+0140 BF3605          134             CASE5:  CJNE    R7,#'6',CASE6
+0143 753706          135                             MOV             BUFFER,#6
+0146 802F            136                             JMP             BREAK
+0148 BF3705          137             CASE6:  CJNE    R7,#'7',CASE7
+014B 753707          138                             MOV             BUFFER,#7
+014E 8027            139                             JMP             BREAK
+0150 BF3805          140             CASE7:  CJNE    R7,#'8',CASE8
+0153 753708          141                             MOV             BUFFER,#8
+0156 801F            142                             JMP             BREAK
+0158 BF3905          143             CASE8:  CJNE    R7,#'9',CASE9
+015B 753709          144                             MOV             BUFFER,#9
+015E 8017            145                             JMP             BREAK
+0160 BF0D11          146             CASE9:  CJNE    R7,#13,CASE10
+0163 753300          147                             MOV             R_DIS3,#00                      
+0166 753200          148                             MOV             R_DIS2,#00
+0169 753100          149                             MOV             R_DIS1,#00
+016C 753000          150                             MOV             R_DIS0,#00
+016F 753700          151                             MOV             BUFFER,#00
+0172 8003            152                             JMP             BREAK           
+0174 753700          153             CASE10: MOV             BUFFER,#0
+0177                 154             BREAK:  
+0177 AF38            155                             MOV             R7,P_DATA
+0179 BF010E          156                             CJNE    R7,#01,CASE_1
+017C 853233          157                             MOV             R_DIS3,R_DIS2                   
+017F 853132          158                             MOV             R_DIS2,R_DIS1
+0182 853031          159                             MOV             R_DIS1,R_DIS0
+0185 853730          160                             MOV             R_DIS0,BUFFER
+0188 8031            161                             JMP             EXIT
+018A BF020E          162             CASE_1: CJNE    R7,#02,CASE_2
+018D 853233          163                             MOV             R_DIS3,R_DIS2                   
+0190 853132          164                             MOV             R_DIS2,R_DIS1
+0193 853031          165                             MOV             R_DIS1,R_DIS0
+0196 853730          166                             MOV             R_DIS0,BUFFER
+0199 8020            167                             JMP             EXIT
+019B BF030E          168             CASE_2: CJNE    R7,#03,CASE_3
+019E 853233          169                             MOV             R_DIS3,R_DIS2                   
+01A1 853132          170                             MOV             R_DIS2,R_DIS1
+01A4 853031          171                             MOV             R_DIS1,R_DIS0
+01A7 853730          172                             MOV             R_DIS0,BUFFER
+01AA 800F            173                             JMP             EXIT
+01AC BF040C          174             CASE_3: CJNE    R7,#04,EXIT
+01AF 853233          175                             MOV             R_DIS3,R_DIS2
+01B2 853132          176                             MOV             R_DIS2,R_DIS1
+01B5 853031          177                             MOV             R_DIS1,R_DIS0
+01B8 853730          178                             MOV             R_DIS0,BUFFER
+01BB                 179             EXIT:   
+01BB D2AF            180             SETB    IE.7
+                     181             
+01BD 22              182             RET     
+                     183     ;----------------- END FUNCTION ----------------        
+A51 MACRO ASSEMBLER  MAIN                                                                 09/09/2021 11:18:34 PAGE     4
+
+                     184     ;-----------------------------------------------
+                     185     ;------------------ ISR TIMER 0 ---------------
+0400                 186     ORG     0400H
+0400                 187     TIMER_0:
+                     188                             ;SEND DATA TO BCD
+0400 7580FF          189                             MOV             P0,#0FFH
+0403 7808            190                             MOV             R0,#8           ;DATA TO SEND
+0405 A936            191                             MOV             R1,R_ADDR       ;LOAD DATA
+0407 C3              192                             CLR             C               ;OBTENER VALOR DE LA POSICION R1
+0408 E7              193                             MOV             A,@R1
+0409 93              194                             MOVC    A,@A+DPTR
+040A C2A0            195     SEND_B:         CLR             S_H
+040C 33              196                             RLC             A
+040D 92A2            197                             MOV             D_S,C
+040F D2A0            198                             SETB    S_H
+0411 D8F7            199                             DJNZ    R0,SEND_B
+0413 853580          200                             MOV             P0,R_P
+0416 D2A1            201                             SETB    S_T
+0418 C2A2            202                             CLR             D_S
+041A C2A0            203                             CLR             S_H
+041C C2A1            204                             CLR     S_T
+041E 7834            205                             MOV             R0,#R_N
+0420 B6040B          206                             CJNE    @R0,#04,CONT_T
+0423 753400          207                             MOV             R_N,#00
+0426 7535FE          208                             MOV             R_P,#11111110B
+0429 753630          209                             MOV             R_ADDR,#R_DIS0
+042C 8009            210                             SJMP    RELOAD_T0
+042E 0534            211     CONT_T:         INC             R_N
+0430 E535            212                             MOV             A,R_P
+0432 23              213                             RL              A
+0433 F535            214                             MOV             R_P,A
+0435 0536            215                             INC             R_ADDR
+0437                 216     RELOAD_T0:      ;RELOAD REGISTER TIMER_0
+0437 758CED          217                             MOV             TH0,#0EDH
+043A 758AFF          218                             MOV             TL0,#0FFH
+043D D28C            219                             SETB            TR0
+043F 32              220                             RETI
+                     221     ;--------------- END ISR TIMER 0 ---------------------
+                     222     ;-----------------------------------------------------
+                     223     ;---------------   ISR TIMER 1   ---------------------
+0450                 224     ORG     0450H
+0450                 225     TIMER_1:        
+0450 32              226                             RETI
+                     227     ;--------------- END ISR TIMER 1 ---------------------
+                     228     ;-----------------------------------------------------
+                     229     ;---------------    ISR INT 0    -----------------------
+0500                 230     ORG     0500H
+0500 C2A7            231     INT_0:          CLR             P2.7
+0502 32              232                             RETI
+                     233     ;--------------- END ISR INT 0 ---------------------
+                     234     ;-----------------------------------------------------
+                     235     ;--------------    ISR INT 1    ---------------------
+0550                 236     ORG     0550H
+0550 D2A7            237     INT_1:          SETB    P2.7
+0552 32              238                             RETI
+                     239     ;--------------- END ISR INT 1 ---------------------
+                     240     ;-----------------------------------------------------
+                     241     ;---------------  ISR SERIAL   ---------------------
+0600                 242     ORG 0600H
+0600 20991B          243     SERIAL:         JB              TI,TRANS
+0603 859937          244                             MOV             BUFFER,SBUF     ; Storage en BUFFER
+0606 C2AF            245                             CLR             IE.7
+0608 853799          246                             MOV     SBUF,BUFFER     ; Devolver datos por Tx
+060B C298            247                             CLR     RI                      ; clear RI 
+060D D27F            248                             SETB    B_SWTCH         ; Entrar a switch       
+060F A838            249                             MOV             R0,P_DATA
+A51 MACRO ASSEMBLER  MAIN                                                                 09/09/2021 11:18:34 PAGE     5
+
+0611 B80403          250                             CJNE    R0,#04,NOT_E
+0614 753800          251                             MOV             P_DATA,#00
+0617 0538            252     NOT_E:          INC             P_DATA          ; Inrementar cada recepciom
+0619 C2B5            253                             CLR             T1              
+061B D2AF            254                             SETB    IE.7            ; Enable serial INT
+061D 32              255                             RETI                            ; Come back
+061E C299            256     TRANS:          CLR             TI
+0620 32              257                             RETI
+                     258     ;--------------- END ISR SERIAL ---------------------
+                     259     
+0650                 260     ORG     0650H                   
+0650 3F065B4F        261     BCD_A:DB        03FH,006H,05BH,04FH,066H,06DH,07DH,007H,07FH,06FH       
+0654 666D7D07                
+0658 7F6F                    
+065A C0F9A4B0        262     BCD_C:DB        0C0H,0F9H,0A4H,0B0H,099H,092H,082H,0F8H,080H,090H
+065E 999282F8                
+0662 8090                    
+                     263     END
+                             ; Terminado
+A51 MACRO ASSEMBLER  MAIN                                                                 09/09/2021 11:18:34 PAGE     6
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+BCD_A. . . . . . .  C ADDR   0650H   A   
+BCD_C. . . . . . .  C ADDR   065AH   A   
+BREAK. . . . . . .  C ADDR   0177H   A   
+BUFFER . . . . . .  N NUMB   0037H   A   
+B_SWTCH. . . . . .  N NUMB   007FH   A   
+CASE0. . . . . . .  C ADDR   0118H   A   
+CASE1. . . . . . .  C ADDR   0120H   A   
+CASE10 . . . . . .  C ADDR   0174H   A   
+CASE2. . . . . . .  C ADDR   0128H   A   
+CASE3. . . . . . .  C ADDR   0130H   A   
+CASE4. . . . . . .  C ADDR   0138H   A   
+CASE5. . . . . . .  C ADDR   0140H   A   
+CASE6. . . . . . .  C ADDR   0148H   A   
+CASE7. . . . . . .  C ADDR   0150H   A   
+CASE8. . . . . . .  C ADDR   0158H   A   
+CASE9. . . . . . .  C ADDR   0160H   A   
+CASE_1 . . . . . .  C ADDR   018AH   A   
+CASE_2 . . . . . .  C ADDR   019BH   A   
+CASE_3 . . . . . .  C ADDR   01ACH   A   
+CONT_T . . . . . .  C ADDR   042EH   A   
+D_1. . . . . . . .  B ADDR   0080H.0 A   
+D_2. . . . . . . .  B ADDR   0080H.1 A   
+D_3. . . . . . . .  B ADDR   0080H.2 A   
+D_4. . . . . . . .  B ADDR   0080H.3 A   
+D_S. . . . . . . .  B ADDR   00A0H.2 A   
+EXIT . . . . . . .  C ADDR   01BBH   A   
+IE . . . . . . . .  D ADDR   00A8H   A   
+INT_0. . . . . . .  C ADDR   0500H   A   
+INT_1. . . . . . .  C ADDR   0550H   A   
+JUMP0. . . . . . .  C ADDR   010AH   A   
+MAIN . . . . . . .  C ADDR   0100H   A   
+NOT_E. . . . . . .  C ADDR   0617H   A   
+P0 . . . . . . . .  D ADDR   0080H   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+P2 . . . . . . . .  D ADDR   00A0H   A   
+P3 . . . . . . . .  D ADDR   00B0H   A   
+P_DATA . . . . . .  N NUMB   0038H   A   
+RELOAD_T0. . . . .  C ADDR   0437H   A   
+RI . . . . . . . .  B ADDR   0098H.0 A   
+R_ADDR . . . . . .  N NUMB   0036H   A   
+R_DIS0 . . . . . .  N NUMB   0030H   A   
+R_DIS1 . . . . . .  N NUMB   0031H   A   
+R_DIS2 . . . . . .  N NUMB   0032H   A   
+R_DIS3 . . . . . .  N NUMB   0033H   A   
+R_N. . . . . . . .  N NUMB   0034H   A   
+R_P. . . . . . . .  N NUMB   0035H   A   
+SBUF . . . . . . .  D ADDR   0099H   A   
+SCON . . . . . . .  D ADDR   0098H   A   
+SEND_B . . . . . .  C ADDR   040AH   A   
+SERIAL . . . . . .  C ADDR   0600H   A   
+SETUP. . . . . . .  C ADDR   0030H   A   
+SW0. . . . . . . .  B ADDR   00B0H.2 A   
+SW1. . . . . . . .  B ADDR   00B0H.3 A   
+SW2. . . . . . . .  B ADDR   00B0H.4 A   
+SW3. . . . . . . .  B ADDR   00B0H.5 A   
+SWITCH_DIS . . . .  C ADDR   0106H   A   
+S_H. . . . . . . .  B ADDR   00A0H.0 A   
+S_T. . . . . . . .  B ADDR   00A0H.1 A   
+T1 . . . . . . . .  B ADDR   00B0H.5 A   
+TCON . . . . . . .  D ADDR   0088H   A   
+A51 MACRO ASSEMBLER  MAIN                                                                 09/09/2021 11:18:34 PAGE     7
+
+TH0. . . . . . . .  D ADDR   008CH   A   
+TH1. . . . . . . .  D ADDR   008DH   A   
+TI . . . . . . . .  B ADDR   0098H.1 A   
+TIMER_0. . . . . .  C ADDR   0400H   A   
+TIMER_1. . . . . .  C ADDR   0450H   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+TR1. . . . . . . .  B ADDR   0088H.6 A   
+TRANS. . . . . . .  C ADDR   061EH   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

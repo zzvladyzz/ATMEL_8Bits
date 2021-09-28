@@ -1,0 +1,1 @@
+"SERIAL.ASM" SET (SMALL) DEBUG PRINT(.\Listings\SERIAL.lst) OBJECT(.\Objects\SERIAL.obj) EP
